@@ -1,0 +1,501 @@
+<!-- templates/results.html -->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Quiz Results</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #fceabb, #f8b500);
+            font-family: 'Arial', sans-serif;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 1.5rem;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+        }
+
+        h1,
+        h2,
+        h3 {
+            text-align: center;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 2rem;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 0.75rem;
+            border-bottom: 1px solid #bdc3c7;
+        }
+
+        tr.top-three td {
+            font-weight: bold;
+        }
+
+        tr.top-three td.medal {
+            font-size: 1.5rem;
+        }
+
+        @keyframes pulse {
+            0% {
+                background-color: #dff9fb;
+            }
+
+            50% {
+                background-color: #c7ecee;
+            }
+
+            100% {
+                background-color: #dff9fb;
+            }
+        }
+
+        .btn-back {
+            display: block;
+            width: 200px;
+            margin: 1.5rem auto;
+            padding: 0.8rem;
+            background: linear-gradient(45deg, #27ae60, #2ecc71);
+            border: none;
+            color: white;
+            font-size: 1.1rem;
+            border-radius: 8px;
+            text-align: center;
+            text-decoration: none;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        {% if role == "player" %}
+        <h1>Tissue Processors Discussion Quiz</h1>
+        <h2>Quiz Results: {{ quiz.title }}</h2>
+
+        <!-- Individual Results Section -->
+        <h3>Your Quiz Performance</h3>
+        <div class="performance-card">
+            <p class="score-display">Quiz Score: <strong>{{ player_score|replace("+1⚡", "") }}</strong></p>
+            {% if "⚡" in player_score|string %}
+            <p class="bonus-display">Time Bonus: <strong>+1⚡</strong></p>
+            <p class="total-display">Total Points: <strong>{{ player_score|replace("+1⚡", "")|int + 1 }}</strong></p>
+            {% else %}
+            <p class="bonus-display">Time Bonus: <strong>0</strong></p>
+            <p class="total-display">Total Points: <strong>{{ player_score }}</strong></p>
+            {% endif %}
+        </div>
+
+        <!-- Add this section after the quiz performance card and before the rankings table -->
+        {% if role == "player" and ranking_change %}
+        <div class="ranking-change-card">
+            <h3>Your Progress</h3>
+            <div class="progress-stats">
+                <div class="stat-item">
+                    <span class="label">Previous Total Points:</span>
+                    <span class="value">{{ ranking_change.previous_total }}</span>
+                </div>
+                <div class="stat-item points-gained">
+                    <span class="label">Points Gained in this Quiz:</span>
+                    <span class="value">+{{ ranking_change.points_gained }}
+                        {% if ranking_change.bonus_gained %}
+                            (includes ⚡bonus)
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="stat-item new-total">
+                    <span class="label">New Total Points:</span>
+                    <span class="value">{{ ranking_change.new_total }}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="label">Total Quizzes Completed:</span>
+                    <span class="value">{{ ranking_change.previous_quizzes + 1 }}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="label">Total Time Bonuses:</span>
+                    <span class="value">{{ ranking_change.previous_bonuses + ranking_change.bonus_gained }}⚡</span>
+                </div>
+            </div>
+        </div>
+
+        <style>
+            .ranking-change-card {
+                background: linear-gradient(145deg, #ffffff, #f0f2f5);
+                padding: 2rem;
+                border-radius: 12px;
+                margin: 2rem 0;
+                text-align: center;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            }
+
+            .progress-stats {
+                display: grid;
+                gap: 1rem;
+                margin-top: 1rem;
+            }
+
+            .stat-item {
+                display: flex;
+                justify-content: space-between;
+                padding: 0.5rem;
+                border-bottom: 1px dashed #eee;
+            }
+
+            .points-gained {
+                color: #27ae60;
+                font-weight: bold;
+            }
+
+            .new-total {
+                font-size: 1.2rem;
+                font-weight: bold;
+                border-bottom: 2px solid #3498db;
+            }
+
+            .label {
+                color: #666;
+            }
+
+            .value {
+                font-weight: bold;
+            }
+        </style>
+        {% endif %}
+
+        <!-- Quiz Rankings -->
+        <h3>Quiz Rankings</h3>
+        <table class="rankings-table">
+            <tr>
+                <th>Rank</th>
+                <th>Player</th>
+                <th>Quiz Score</th>
+                <th>Time Bonus</th>
+                <th>Total</th>
+            </tr>
+            {% for rank in current_rankings %}
+            <tr class="{% if loop.index0 < 3 %}top-three{% endif %}">
+                <td>{{ loop.index }}</td>
+                <td>
+                    {% if loop.index == 1 %}🥇
+                    {% elif loop.index == 2 %}🥈
+                    {% elif loop.index == 3 %}🥉
+                    {% endif %}
+                    {{ rank.username }}
+                </td>
+                <td>{{ rank.score|replace("+1⚡", "") }}</td>
+                <td>{% if "⚡" in rank.score|string %}+1⚡{% else %}0{% endif %}</td>
+                <td><strong>
+                    {% if "⚡" in rank.score|string %}
+                        {{ rank.score|replace("+1⚡", "")|int + 1 }}
+                    {% else %}
+                        {{ rank.score }}
+                    {% endif %}
+                </strong></td>
+            </tr>
+            {% endfor %}
+        </table>
+
+        <!-- Add Overall Rankings right after Quiz Rankings -->
+        <h3>Overall Rankings (Updated)</h3>
+        <table class="rankings-table">
+            <tr>
+                <th>Rank</th>
+                <th>Player</th>
+                <th>Quizzes</th>
+                <th>Quiz Score</th>
+                <th>Time Bonuses</th>
+                <th>Total Points</th>
+            </tr>
+            {% for rank in overall_rankings %}
+            <tr class="{% if loop.index0 < 3 %}top-three{% endif %}">
+                <td>{{ loop.index }}</td>
+                <td>
+                    {% if loop.index == 1 %}🏆
+                    {% elif loop.index == 2 %}🥈
+                    {% elif loop.index == 3 %}🥉
+                    {% endif %}
+                    {{ rank.username }}
+                </td>
+                <td>{{ rank.quizzes }}</td>
+                <td>{{ rank.quiz_score }}</td>
+                <td>{% if rank.bonuses > 0 %}{{ rank.bonuses }}⚡{% else %}0{% endif %}</td>
+                <td><strong>{{ rank.total_points }}</strong></td>
+            </tr>
+            {% endfor %}
+        </table>
+
+        <!-- Questions Review Section -->
+        <h3>Questions Review</h3>
+        <table>
+            <tr>
+                <th>#</th>
+                <th>Question</th>
+                <th>Your Answer</th>
+                <th>Correct Answer</th>
+            </tr>
+            {% for q in quiz_questions %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ q.text }}</td>
+                <td>
+                    <!-- Fetch and display the player's answer for this question -->
+                    {% set player_answer = get_player_answer(q.id) %}
+                    {{ player_answer if player_answer else 'Not Answered' }}
+                </td>
+                <td>{{ q.correct_answer }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+
+        <style>
+            .performance-card {
+                background: linear-gradient(145deg, #ffffff, #f0f2f5);
+                padding: 2rem;
+                border-radius: 12px;
+                margin: 2rem 0;
+                text-align: center;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            }
+
+            .score-display, .bonus-display, .total-display {
+                font-size: 1.2rem;
+                margin: 0.5rem 0;
+            }
+
+            .bonus-display {
+                color: #e67e22;
+            }
+
+            .total-display {
+                font-size: 1.4rem;
+                margin-top: 1rem;
+                padding-top: 1rem;
+                border-top: 2px dashed #eee;
+            }
+
+            .rankings-table {
+                width: 100%;
+                margin: 2rem 0;
+                border-collapse: collapse;
+                background: white;
+                border-radius: 8px;
+                overflow: hidden;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+
+            .rankings-table th {
+                background: #f0f2f5;
+                padding: 1rem;
+                text-align: center;
+            }
+
+            .rankings-table td {
+                padding: 1rem;
+                text-align: center;
+                border-bottom: 1px solid #eee;
+            }
+
+            .top-three td {
+                background: #f8f9fa;
+                font-weight: bold;
+            }
+        </style>
+        {% endif %}
+        {% if role == "admin" %}
+        <h1>Tissue Processors Discussion Quiz</h1>
+        <h2>Admin Page - Quiz Results: {{ quiz.title }}</h2>
+
+        <!-- New Live Question Section -->
+        <h2>Current Live Question</h2>
+        <div id="live-question">
+            <p>Loading current question...</p>
+        </div>
+        <script>
+            function fetchLiveQuestion() {
+                fetch(`/live_question/{{ quiz.id }}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        let content = "";
+                        if (data.status === "started") {
+                            content += `<p>${data.question}</p>`;
+                            if (data.options) {
+                                content += '<ul>';
+                                data.options.forEach(option => content += `<li>${option}</li>`);
+                                content += '</ul>';
+                            }
+                        } else {
+                            content = `<p>Status: ${data.status}</p>`;
+                        }
+                        document.getElementById("live-question").innerHTML = content;
+                    })
+                    .catch(err => console.error("Failed to fetch live question", err));
+            }
+            setInterval(fetchLiveQuestion, 3000);
+            fetchLiveQuestion();
+        </script>
+
+        <h2>Questions in This Quiz</h2>
+        <table>
+            <tr>
+                <th>#</th>
+                <th>Question</th>
+                <th>Correct Answer</th>
+            </tr>
+            {% for q in quiz_questions %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ q.text }}</td>
+                <td>{{ q.correct_answer }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        <h2>Current Rankings</h2>
+        <table>
+            <tr>
+                <th>Rank</th>
+                <th>Player</th>
+                <th>Score</th>
+            </tr>
+            {% for rank in current_rankings %}
+            <tr class="{% if loop.index0 < 3 %}top-three{% endif %}">
+                <td>{{ loop.index }}</td>
+                <td>
+                    {% if loop.index == 1 %}
+                    🥇
+                    {% elif loop.index == 2 %}
+                    🥈
+                    {% elif loop.index == 3 %}
+                    🥉
+                    {% endif %}
+                    {{ rank.username }}
+                </td>
+                <td>{{ rank.score }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        <h2>Overall Rankings</h2>
+        <table>
+            <tr>
+                <th>Rank</th>
+                <th>Player</th>
+                <th>Quizzes</th>
+                <th>Quiz Score</th>
+                <th>Time Bonuses</th>
+                <th>Total Points</th>
+            </tr>
+            {% for rank in overall_rankings %}
+            <tr class="{% if loop.index0 < 3 %}top-three{% endif %}">
+                <td>{{ loop.index }}</td>
+                <td>
+                    {% if loop.index == 1 %}
+                    🏆
+                    {% elif loop.index == 2 %}
+                    🥈
+                    {% elif loop.index == 3 %}
+                    🥉
+                    {% endif %}
+                    {{ rank.username }}
+                </td>
+                <td>{{ rank.quizzes }}</td>
+                <td>{{ rank.quiz_score }}</td>
+                <td>{% if rank.bonuses > 0 %}{{ rank.bonuses }}⚡{% else %}0{% endif %}</td>
+                <td><strong>{{ rank.total_points }}</strong></td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% endif %}
+    </div>
+    <script>
+        const quizId = window.location.pathname.split("/").pop();
+        let isPolling = true;
+
+        async function updateRankings() {
+            if (!isPolling) return;
+
+            try {
+                const loadingElement = document.getElementById('loading');
+                if (loadingElement) {
+                    loadingElement.style.display = 'flex';
+                }
+
+                const [currentResponse, overallResponse] = await Promise.all([
+                    fetch(`/rankings/${quizId}`),
+                    fetch('/overall_rankings')
+                ]);
+
+                const currentRankings = await currentResponse.json();
+                const overallRankings = await overallResponse.json();
+
+                displayRankings('current-rankings', currentRankings, 'Quiz Rankings');
+                displayRankings('overall-rankings', overallRankings, 'Overall Rankings');
+            } catch (error) {
+                console.error("Error updating rankings:", error);
+            } finally {
+                const loadingElement = document.getElementById('loading');
+                if (loadingElement) {
+                    loadingElement.style.display = 'none';
+                }
+            }
+        }
+
+        function displayRankings(elementId, rankings, title) {
+            const container = document.getElementById(elementId);
+            if (!container) return;
+
+            const html = `
+                <h2>${title}</h2>
+                <table>
+                    <tr><th>Rank</th><th>Player</th><th>Score</th></tr>
+                    ${rankings.map((r, i) => `
+                        <tr class="${i < 3 ? 'top-three' : ''}">
+                            <td>${i + 1}</td>
+                            <td>
+                                ${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : ''}
+                                ${r.username}
+                            </td>
+                            <td>${r.score}</td>
+                        </tr>
+                    `).join('')}
+                </table>
+            `;
+            container.innerHTML = html;
+        }
+
+        // Initialize rankings update
+        updateRankings();
+        const rankingsInterval = setInterval(updateRankings, 5000);
+
+        // Cleanup when page is hidden
+        document.addEventListener('visibilitychange', () => {
+            isPolling = !document.hidden;
+            if (!isPolling) {
+                clearInterval(rankingsInterval);
+            } else {
+                updateRankings();
+            }
+        });
+
+        {% if role == "admin" %}
+        if (typeof fetchPerformanceData === 'function') {
+            fetchPerformanceData();
+        }
+        {% endif %}
+    </script>
+</body>
+</html>

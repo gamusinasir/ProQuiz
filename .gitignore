@@ -1,0 +1,35 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+instance/
+
+# IDE specific
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs and databases
+*.log
+*.sqlite
+*.db
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Test coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Local development settings
+local_settings.py

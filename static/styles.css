@@ -1,0 +1,122 @@
+/* styles.css - Local CSS (includes Bootstrap-like styles) */
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+    background: #f0f0f0;
+  }
+  
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  }
+  
+  .btn {
+    padding: 10px 20px;
+    background: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  
+  .timer {
+    font-size: 24px;
+    color: #ff5722;
+    text-align: center;
+    margin: 20px;
+  }
+  
+  .answers {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .answer-option {
+    padding: 15px;
+    border: 2px solid #ddd;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  
+  .correct {
+    background: #d4edda !important;
+    border-color: #28a745 !important;
+  }
+  
+  .incorrect {
+    background: #f8d7da !important;
+    border-color: #dc3545 !important;
+  }
+  
+  /* For mobile responsiveness */
+  @media (max-width: 600px) {
+    .container {
+      margin: 10px;
+      padding: 10px;
+    }
+  }
+
+/* Admin-specific styles */
+.quiz-info {
+    background: #e3f2fd;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+.quiz-info h1 {
+    color: #1976d2;
+    margin: 0;
+}
+
+.description {
+    color: #666;
+    font-size: 0.9em;
+}
+
+.admin-name {
+    color: #2e7d32;
+    font-weight: bold;
+}
+
+.join-section {
+    text-align: center;
+    margin: 20px 0;
+}
+
+.join-url {
+    word-break: break-all;
+    background: #fff3e0;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.players-waiting {
+    background: #f5f5f5;
+    padding: 15px;
+    border-radius: 10px;
+}
+
+#players-list {
+    list-style: none;
+    padding: 0;
+}
+
+#players-list li {
+    padding: 8px;
+    margin: 5px 0;
+    background: white;
+    border-radius: 5px;
+}
+
+.btn-start {
+    background: #d32f2f !important;
+    font-size: 1.2em;
+    width: 100%;
+    padding: 15px;
+}

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Archived Quizzes</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        .archive-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 2rem 0;
+        }
+        .archive-table th, .archive-table td {
+            padding: 1rem;
+            border: 1px solid #ddd;
+        }
+        .archive-table th {
+            background: #f5f5f5;
+        }
+        .quiz-link {
+            color: #2196F3;
+            text-decoration: none;
+        }
+        .quiz-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Archived Quizzes</h1>
+        <table class="archive-table">
+            <tr>
+                <th>Quiz Title</th>
+                <th>Admin</th>
+                <th>Players</th>
+                <th>Questions</th>
+                <th>End Date</th>
+                <th>Actions</th>
+            </tr>
+            {% for stat in stats %}
+            <tr>
+                <td>
+                    <a href="{{ url_for('show_results', quiz_id=stat.quiz.id) }}" class="quiz-link">
+                        {{ stat.quiz.title }}
+                    </a>
+                </td>
+                <td>{{ stat.quiz.admin_name }}</td>
+                <td>{{ stat.players }}</td>
+                <td>{{ stat.questions }}</td>
+                <td>{{ stat.date }}</td>
+                <td>
+                    <a href="{{ url_for('show_results', quiz_id=stat.quiz.id) }}" class="btn">View Results</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+</body>
+</html>
