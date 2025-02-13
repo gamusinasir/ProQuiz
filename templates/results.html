@@ -7,10 +7,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Quiz Results</title>
     <link rel="stylesheet" href="/static/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
             background: linear-gradient(135deg, #fceabb, #f8b500);
-            font-family: 'Arial', sans-serif;
+            font-family: 'Poppins', sans-serif;
             color: #333;
             margin: 0;
             padding: 0;
@@ -321,35 +322,6 @@
         <h1>Tissue Processors Discussion Quiz</h1>
         <h2>Admin Page - Quiz Results: {{ quiz.title }}</h2>
 
-        <!-- New Live Question Section -->
-        <h2>Current Live Question</h2>
-        <div id="live-question">
-            <p>Loading current question...</p>
-        </div>
-        <script>
-            function fetchLiveQuestion() {
-                fetch(`/live_question/{{ quiz.id }}`)
-                    .then(res => res.json())
-                    .then(data => {
-                        let content = "";
-                        if (data.status === "started") {
-                            content += `<p>${data.question}</p>`;
-                            if (data.options) {
-                                content += '<ul>';
-                                data.options.forEach(option => content += `<li>${option}</li>`);
-                                content += '</ul>';
-                            }
-                        } else {
-                            content = `<p>Status: ${data.status}</p>`;
-                        }
-                        document.getElementById("live-question").innerHTML = content;
-                    })
-                    .catch(err => console.error("Failed to fetch live question", err));
-            }
-            setInterval(fetchLiveQuestion, 3000);
-            fetchLiveQuestion();
-        </script>
-
         <h2>Questions in This Quiz</h2>
         <table>
             <tr>
@@ -365,7 +337,8 @@
             </tr>
             {% endfor %}
         </table>
-        <h2>Current Rankings</h2>
+
+        <h2>{{ quiz.title }} - Rankings</h2>
         <table>
             <tr>
                 <th>Rank</th>
@@ -389,7 +362,7 @@
             </tr>
             {% endfor %}
         </table>
-        <h2>Overall Rankings</h2>
+        <h2>Overall Ranking of Processors</h2>
         <table>
             <tr>
                 <th>Rank</th>

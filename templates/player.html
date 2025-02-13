@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Player Page</title>
   <link rel="stylesheet" href="/static/styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     /* Extra styles for gamification */
     .answer-option, button.submit-btn {
@@ -22,16 +23,51 @@
     .answer-option:hover, button.submit-btn:hover {
       transform: scale(1.05);
     }
-    #timer {
-      font-size: 2rem;
-      font-weight: bold;
-      color: #4CAF50;
-      background: #FFF9C4;
-      padding: 0.5rem 1rem;
+    #timer-container {
+      position: relative;
+      width: 100px;
+      height: 100px;
+      margin: 0 auto 1rem;
+    }
+
+    #timer-circle {
+      width: 100%;
+      height: 100%;
       border-radius: 50%;
+      background: conic-gradient(#4CAF50 0%, transparent 0%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #fff;
       box-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-      display: inline-block;
-      margin-bottom: 1rem;
+      transition: background 0.3s ease;
+    }
+
+    #timer-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .warning {
+      color: red;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+
+    body {
+      font-family: 'Poppins', sans-serif;
     }
   </style>
 </head>
@@ -45,7 +81,11 @@
 
     <!-- Question Screen (hidden initially) -->
     <div id="question-screen" class="hidden">
-      <div class="timer" id="timer">60</div>
+      <div id="timer-container">
+        <div id="timer-circle">
+          <span id="timer-text">60</span>
+        </div>
+      </div>
       <h2 id="question-text"></h2>
       <div class="answers" id="answers"></div>
     </div>
@@ -88,20 +128,32 @@
     // ===== Timer Logic =====
     function startTimer() {
       let remainingTime = 60;
-      const timerElement = document.getElementById("timer");
+      const timerText = document.getElementById("timer-text");
+      const timerCircle = document.getElementById("timer-circle");
       timerInterval = setInterval(() => {
         remainingTime--;
-        timerElement.textContent = remainingTime;
-        if (remainingTime <= 10) timerElement.classList.add('warning');
+        timerText.textContent = remainingTime;
+
+        // Calculate the angle for the conic gradient
+        const angle = (remainingTime / 60) * 360;
+        timerCircle.style.background = `conic-gradient(#4CAF50 ${angle}deg, transparent ${angle}deg)`;
+
+        if (remainingTime <= 10) {
+          timerText.classList.add('warning');
+          timerCircle.style.background = `conic-gradient(#FF5252 ${angle}deg, transparent ${angle}deg)`;
+        }
+
         if (remainingTime <= 0) {
           clearInterval(timerInterval);
-          submitAnswer(null); // auto-submit on timeout (no visual button to color)
+          submitAnswer("", null); // Submit empty answer and move to next question
+          loadQuestion(); // Automatically load next question
         }
       }, 1000);
     }
 
     // ===== Question Loading =====
     async function loadQuestion() {
+      clearInterval(timerInterval); // Clear any existing timer
       document.getElementById('loading').style.display = 'flex';
       try {
         console.log("Loading question...");
@@ -109,14 +161,9 @@
         const data = await response.json();
         console.log("Question data:", data);
         
-        if (data.status === "ended") {
-          window.location.href = `/results/${quizId}`;
+        if (data.status === "ended" || data.status === "finished") {
+          window.location.href = data.redirect_url || `/results/${quizId}`;
           return;
-        }
-        
-        if (data.status === "finished") {
-            window.location.href = data.redirect_url;
-            return;
         }
         
         currentQuestionId = data.question_id;
@@ -129,7 +176,6 @@
             const button = document.createElement("button");
             button.className = "answer-option";
             button.textContent = `${String.fromCharCode(65 + idx)}. ${option}`;
-            // Pass button element to change its color on response
             button.onclick = () => submitAnswer(String.fromCharCode(65 + idx), button);
             answersDiv.appendChild(button);
           });
@@ -145,7 +191,7 @@
           button.onclick = () => submitAnswer(input.value, button);
           answersDiv.append(input, button);
         }
-        startTimer();
+        startTimer(); // Start new timer for the question
       } catch (error) {
         console.error("Error loading question:", error);
         setTimeout(loadQuestion, 2000);
@@ -155,33 +201,32 @@
     }
 
     // ===== Answer Submission =====
-    function submitAnswer(answer, buttonElement) {
-      clearInterval(timerInterval);
-      fetch(`/submit_answer/${quizId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question_id: currentQuestionId, answer: answer })
-      })
-      .then(res => res.json())
-      .then(data => {
+    async function submitAnswer(answer, buttonElement) {
+      clearInterval(timerInterval); // Clear timer on submission
+      try {
+        const response = await fetch(`/submit_answer/${quizId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question_id: currentQuestionId, answer: answer })
+        });
+        const data = await response.json();
+        
         if (data.status === "finished") {
           window.location.href = data.redirect_url;
           return;
         }
+
         if (buttonElement) {
-          if (data.correct) {
-            buttonElement.style.backgroundColor = "lightgreen";
-          } else {
-            buttonElement.style.backgroundColor = "lightcoral";
-          }
+          buttonElement.style.backgroundColor = data.correct ? "lightgreen" : "lightcoral";
+          // Short delay to show the color feedback before moving to next question
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
-        // Load next question after a short delay to show color feedback
-        setTimeout(loadQuestion, 2000);
-      })
-      .catch(err => {
+        
+        loadQuestion(); // Load next question automatically
+      } catch (err) {
         console.error("Submission error:", err);
         loadQuestion();
-      });
+      }
     }
 
     // ===== Initial Setup =====

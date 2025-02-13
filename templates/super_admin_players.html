@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Player Management - Super Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            background: #f5f7fb;
+            color: #2c3e50;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 28px;
+            margin-bottom: 30px;
+            color: #2c3e50;
+        }
+
+        .quiz-section {
+            margin-bottom: 30px;
+            padding: 25px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .quiz-section h2 {
+            color: #34495e;
+            font-size: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .player-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            background: white;
+        }
+
+        .player-table th {
+            background: #f8f9fa;
+            color: #2c3e50;
+            font-weight: 500;
+            text-transform: uppercase;
+            font-size: 13px;
+        }
+
+        .player-table th, .player-table td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #edf2f7;
+        }
+
+        .player-table tr:hover {
+            background: #f8fafc;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .btn-edit {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-edit:hover {
+            background: #2980b9;
+        }
+
+        .btn-delete {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-delete:hover {
+            background: #c0392b;
+        }
+
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: #34495e;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .back-btn:hover {
+            background: #2c3e50;
+            transform: translateY(-1px);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-completed {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .status-progress {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .status-not-started {
+            background: #fafafa;
+            color: #757575;
+        }
+
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-container">
+            <a href="{{ url_for('super_admin_dashboard') }}" class="back-btn">
+                ← Back to Dashboard
+            </a>
+            <h1>Player Management</h1>
+        </div>
+
+        {% for quiz in quizzes %}
+        <div class="quiz-section">
+            <h2>{{ quiz.title }} <span style="color: #7f8c8d; font-size: 16px">({{ quiz.admin_name }})</span></h2>
+            <table class="player-table">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Score</th>
+                        <th>Progress</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for player in quiz.players %}
+                    <tr id="player-{{ player.id }}">
+                        <td>{{ player.username }}</td>
+                        <td>{{ player.score }}</td>
+                        <td>
+                            {% if player.progress %}
+                                <span class="status-badge {% if player.progress.completed %}status-completed{% else %}status-progress{% endif %}">
+                                    {{ player.progress.current_question_index }} / {{ quiz.total_questions }}
+                                    {% if player.progress.completed %}(Completed){% endif %}
+                                </span>
+                            {% else %}
+                                <span class="status-badge status-not-started">Not started</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button onclick="editPlayer({{ player.id }}, '{{ player.username }}')" class="btn btn-edit">Edit</button>
+                            <button onclick="deletePlayer({{ player.id }}, '{{ player.username }}')" class="btn btn-delete">Delete</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endfor %}
+    </div>
+
+    <script>
+        function editPlayer(playerId, currentUsername) {
+            const newUsername = prompt('Enter new username:', currentUsername);
+            if (newUsername && newUsername !== currentUsername) {
+                fetch(`/super-admin/players/${playerId}/edit`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: newUsername })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        location.reload();
+                    } else {
+                        alert(data.error || 'Failed to update username');
+                    }
+                });
+            }
+        }
+
+        function deletePlayer(playerId, username) {
+            if (confirm(`Are you sure you want to delete player "${username}"?\nThis will remove all their scores and progress.`)) {
+                fetch(`/super-admin/players/${playerId}/delete`, {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        document.getElementById(`player-${playerId}`).remove();
+                    } else {
+                        alert(data.error || 'Failed to delete player');
+                    }
+                });
+            }
+        }
+    </script>
+</body>
+</html>

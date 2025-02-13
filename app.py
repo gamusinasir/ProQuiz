@@ -910,7 +910,7 @@ def re_offer_quiz(quiz_id):
         if (not quiz):
             return jsonify({"error": "Quiz not found"}), 404
 
-        # Delete all player-related data for this quiz
+        # Delete only player progress data for this quiz
         PlayerAnswer.query.filter(
             PlayerAnswer.player_id.in_(
                 db.session.query(Player.id).filter_by(quiz_id=quiz_id)
@@ -922,8 +922,6 @@ def re_offer_quiz(quiz_id):
                 db.session.query(Player.id).filter_by(quiz_id=quiz_id)
             )
         ).delete(synchronize_session=False)
-        
-        Player.query.filter_by(quiz_id=quiz_id).delete()
         
         # Reset quiz status
         quiz.status = "not_started"
@@ -992,6 +990,160 @@ def reset_quiz_session(quiz_id):
         db.session.rollback()
         logger.error(f"Failed to reset quiz session {quiz_id}: {str(e)}")
         return jsonify({"error": "Failed to reset quiz session"}), 500
+
+@app.route("/super-admin/get-players/<int:quiz_id>")
+@require_super_admin
+def get_players(quiz_id):
+    try:
+        players = Player.query.filter_by(quiz_id=quiz_id).all()
+        return jsonify([{
+            'id': player.id,
+            'username': player.username,
+            'score': player.score
+        } for player in players])
+    except Exception as e:
+        logger.error(f"Failed to get players for quiz {quiz_id}: {str(e)}")
+        return jsonify({"error": "Failed to get players"}), 500
+
+@app.route("/super-admin/edit-player/<int:player_id>", methods=["POST"])
+@require_super_admin
+def edit_player(player_id):
+    try:
+        data = request.get_json()
+        new_username = data.get('username')
+        
+        if not new_username:
+            return jsonify({"error": "Username cannot be empty"}), 400
+            
+        player = db.session.get(Player, player_id)
+        if not player:
+            return jsonify({"error": "Player not found"}), 404
+            
+        # Check if username is already taken in the same quiz
+        existing_player = Player.query.filter_by(
+            quiz_id=player.quiz_id,
+            username=new_username
+        ).first()
+        
+        if existing_player and existing_player.id != player_id:
+            return jsonify({"error": "Username already taken"}), 400
+            
+        player.username = new_username
+        db.session.commit()
+        
+        return jsonify({
+            "status": "success",
+            "message": "Player name updated successfully",
+            "quiz_id": player.quiz_id
+        })
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Failed to edit player {player_id}: {str(e)}")
+        return jsonify({"error": "Failed to update player name"}), 500
+
+@app.route("/super-admin/delete-player/<int:player_id>", methods=["POST"])
+@require_super_admin
+def delete_player(player_id):
+    try:
+        player = db.session.get(Player, player_id)
+        if not player:
+            return jsonify({"error": "Player not found"}), 404
+            
+        # Delete related records
+        PlayerAnswer.query.filter_by(player_id=player_id).delete()
+        PlayerProgress.query.filter_by(player_id=player_id).delete()
+        db.session.delete(player)
+        db.session.commit()
+        
+        return jsonify({
+            "status": "success",
+            "message": "Player deleted successfully"
+        })
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Failed to delete player {player_id}: {str(e)}")
+        return jsonify({"error": "Failed to delete player"}), 500
+
+@app.route('/super-admin/players')
+@require_super_admin
+def super_admin_players():
+    # Get all quizzes with their players
+    quizzes = Quiz.query.all()
+    quiz_data = []
+    
+    for quiz in quizzes:
+        players = Player.query.filter_by(quiz_id=quiz.id).all()
+        player_data = []
+        total_questions = Question.query.filter_by(quiz_id=quiz.id).count()
+        
+        for player in players:
+            progress = PlayerProgress.query.filter_by(
+                player_id=player.id,
+                quiz_id=quiz.id
+            ).first()
+            
+            player_data.append({
+                'id': player.id,
+                'username': player.username,
+                'score': player.score,
+                'progress': progress
+            })
+        
+        quiz_data.append({
+            'id': quiz.id,
+            'title': quiz.title,
+            'admin_name': quiz.admin_name,
+            'players': player_data,
+            'total_questions': total_questions
+        })
+    
+    return render_template('super_admin_players.html', quizzes=quiz_data)
+
+@app.route('/super-admin/players/<int:player_id>/edit', methods=['POST'])
+@require_super_admin
+def super_admin_edit_player(player_id):
+    try:
+        data = request.get_json()
+        new_username = data.get('username')
+        
+        if not new_username:
+            return jsonify({'error': 'Username cannot be empty'}), 400
+        
+        player = Player.query.get_or_404(player_id)
+        
+        # Check if username is taken in the same quiz
+        existing = Player.query.filter_by(
+            quiz_id=player.quiz_id,
+            username=new_username
+        ).first()
+        
+        if existing and existing.id != player_id:
+            return jsonify({'error': 'Username already taken in this quiz'}), 400
+        
+        player.username = new_username
+        db.session.commit()
+        
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/super-admin/players/<int:player_id>/delete', methods=['POST'])
+@require_super_admin
+def super_admin_delete_player(player_id):
+    try:
+        player = Player.query.get_or_404(player_id)
+        
+        # Delete all related records
+        PlayerAnswer.query.filter_by(player_id=player_id).delete()
+        PlayerProgress.query.filter_by(player_id=player_id).delete()
+        db.session.delete(player)
+        db.session.commit()
+        
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/shutdown', methods=['POST'])
 def shutdown():
