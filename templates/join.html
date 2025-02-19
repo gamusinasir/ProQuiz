@@ -6,6 +6,7 @@
   <title>Join Quiz</title>
   <link rel="stylesheet" href="/static/styles.css">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="/static/script.js"></script>
   <style>
     body {
       font-family: 'Poppins', sans-serif;
@@ -51,11 +52,46 @@
       {{ error_message }}
     </div>
     {% else %}
-    <form method="POST">
-      <input type="text" name="username" placeholder="Enter username" required>
+    <form method="POST" id="joinForm">
+      <input type="text" name="username" id="username" placeholder="Enter username" required>
       <button type="submit" class="btn">Join</button>
     </form>
     {% endif %}
   </div>
+  <script>
+    document.getElementById('joinForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const username = document.getElementById('username').value.trim();
+        
+        if (!username) {
+            ui.showError('Please enter your username');
+            return;
+        }
+
+        ui.showLoading(true);
+        try {
+            // Fix: Use proper URL with quiz_id from current path
+            const quiz_id = window.location.pathname.split('/join/')[1];
+            const response = await fetch(`/join/${quiz_id}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `username=${encodeURIComponent(username)}`
+            });
+            
+            const data = await response.json();
+            if (response.ok && data.status === 'success') {
+                window.location.href = data.redirect_url;
+            } else {
+                ui.showError(data.message || 'Failed to join quiz');
+            }
+        } catch (error) {
+            ui.showError('Failed to join quiz. Please try again.');
+        } finally {
+            ui.showLoading(false);
+        }
+    });
+  </script>
 </body>
 </html>

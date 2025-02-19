@@ -8,6 +8,8 @@
     <title>Quiz Results</title>
     <link rel="stylesheet" href="/static/styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/static/script.js"></script>
     <style>
         body {
             background: linear-gradient(135deg, #fceabb, #f8b500);
@@ -402,44 +404,28 @@
             if (!isPolling) return;
 
             try {
-                const loadingElement = document.getElementById('loading');
-                if (loadingElement) {
-                    loadingElement.style.display = 'flex';
-                }
-
-                const [currentResponse, overallResponse] = await Promise.all([
-                    fetch(`/rankings/${quizId}`),
-                    fetch('/overall_rankings')
-                ]);
-
-                const currentRankings = await currentResponse.json();
-                const overallRankings = await overallResponse.json();
-
-                displayRankings('current-rankings', currentRankings, 'Quiz Rankings');
-                displayRankings('overall-rankings', overallRankings, 'Overall Rankings');
+                const data = await api.fetch(`/rankings/${quizId}`);
+                renderRankings(data);
             } catch (error) {
-                console.error("Error updating rankings:", error);
-            } finally {
-                const loadingElement = document.getElementById('loading');
-                if (loadingElement) {
-                    loadingElement.style.display = 'none';
-                }
+                console.error('Error updating rankings:', error);
             }
         }
 
-        function displayRankings(elementId, rankings, title) {
-            const container = document.getElementById(elementId);
+        function renderRankings(rankings) {
+            const container = document.getElementById('rankings-container');
             if (!container) return;
 
-            const html = `
-                <h2>${title}</h2>
-                <table>
-                    <tr><th>Rank</th><th>Player</th><th>Score</th></tr>
+            const medalEmojis = ['🥇', '🥈', '🥉'];
+            const rankingsHtml = `
+                <table class="standings-table">
+                    <tr>
+                        <th>Player</th>
+                        <th>Score</th>
+                    </tr>
                     ${rankings.map((r, i) => `
                         <tr class="${i < 3 ? 'top-three' : ''}">
-                            <td>${i + 1}</td>
                             <td>
-                                ${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : ''}
+                                ${i < 3 ? medalEmojis[i] : ''}
                                 ${r.username}
                             </td>
                             <td>${r.score}</td>
@@ -447,27 +433,65 @@
                     `).join('')}
                 </table>
             `;
-            container.innerHTML = html;
+            container.innerHTML = rankingsHtml;
         }
 
         // Initialize rankings update
         updateRankings();
         const rankingsInterval = setInterval(updateRankings, 5000);
 
-        // Cleanup when page is hidden
-        document.addEventListener('visibilitychange', () => {
-            isPolling = !document.hidden;
-            if (!isPolling) {
+        // Handle page visibility
+        pageVisibility.onChange(visible => {
+            isPolling = visible;
+            if (!visible) {
                 clearInterval(rankingsInterval);
             } else {
                 updateRankings();
             }
         });
 
+        // Initialize performance chart for admin
         {% if role == "admin" %}
-        if (typeof fetchPerformanceData === 'function') {
-            fetchPerformanceData();
+        async function fetchPerformanceData() {
+            try {
+                const data = await api.fetch(`/performance_data/${quizId}`);
+                renderChart(data);
+            } catch (error) {
+                console.error("Error fetching performance data:", error);
+            }
         }
+
+        function renderChart(data) {
+            const ctx = document.getElementById('performanceChart').getContext('2d');
+            const bestScore = Math.max(...data.scores);
+            const bestPlayerIndex = data.scores.indexOf(bestScore);
+            const backgroundColors = data.scores.map((_, index) => 
+                index === bestPlayerIndex ? 'rgba(255, 205, 86, 0.8)' : 'rgba(54, 162, 235, 0.5)'
+            );
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: 'Score',
+                        data: data.scores,
+                        backgroundColor: backgroundColors,
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        fetchPerformanceData();
         {% endif %}
     </script>
 </body>

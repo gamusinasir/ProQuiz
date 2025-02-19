@@ -100,31 +100,43 @@ def generate_qr(quiz_id):
         # Get the local IP address
         local_ip = get_local_ip()
         
-        # Create the full join URL with http:// prefix
+        # Create the full join URL with http:// prefix and correct port
         join_url = f"http://{local_ip}:5000/join/{quiz_id}"
         
-        # Create QR with specific format to ensure it's recognized as URL
+        # Create QR with consistent format
         qr = qrcode.QRCode(
             version=1,
             box_size=10,
             border=5,
             error_correction=qrcode.constants.ERROR_CORRECT_L
         )
-        # Add URL with proper schema
         qr.add_data(join_url)
         qr.make(fit=True)
         
         # Generate QR code image
         img = qr.make_image(fill='black', back_color='white')
+        
+        # Ensure directory exists
+        os.makedirs('static/qrcodes', exist_ok=True)
+        
+        # Save the QR code
         img.save(f'static/qrcodes/quiz_{quiz_id}.png')
+        
+        # Generate new QR code whenever a quiz is re-offered
+        os.utime(f'static/qrcodes/quiz_{quiz_id}.png')
+        
         logger.info(f"QR code generated for quiz {quiz_id} with URL: {join_url}")
+        
     except Exception as e:
         logger.error(f"Failed to generate QR code for quiz {quiz_id}: {str(e)}")
+        
+    return join_url  # Return the URL so it can be used to verify match
 
 def get_local_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        s.connect(('10.255.255.255', 1))
+        # Connect to an external server (doesn't actually send any packets)
+        s.connect(('8.8.8.8', 80))
         ip = s.getsockname()[0]
         logger.info(f"Local IP address retrieved: {ip}")
         return ip
@@ -230,9 +242,10 @@ def get_overall_rankings():
             reverse=True
         )
     except Exception as e:
-        logger.error(f"Failed to get overall rankings: {str(e)}")
+        logger.error(f"Failed to get overall rankings: {str(e)}") 
         return []
-
+    
+    
 def get_player_answer(question_id):
     try:
         player_id = session.get('player_id')
@@ -251,11 +264,11 @@ app.jinja_env.globals.update(get_player_answer=get_player_answer)
 @app.route('/')
 def home():
     logger.info("Home page accessed")
-    quiz = Quiz.query.first()  # Get the first quiz
-    if (quiz):
+    # Don't show archived quizzes on admin page
+    quiz = Quiz.query.filter_by(is_archived=False).first()  # Get the first non-archived quiz
+    if quiz:
         return redirect(url_for('admin', quiz_id=quiz.id, welcome_message="Welcome to ProQuiz Admin Page"))
     else:
-        # If no quiz exists, still render the admin page but with a message
         return render_template('admin.html', quiz=None, players=[], local_ip=get_local_ip(), overall_rankings=[], welcome_message="Welcome to ProQuiz Admin Page - No Quiz Created Yet")
 
 @app.route('/upload', methods=['POST'])
@@ -323,48 +336,69 @@ def upload():
 def join(quiz_id):
     quiz = db.session.get(Quiz, quiz_id)
     
+    # Check if quiz exists
+    if not quiz:
+        return render_template('join.html', error_message="Quiz not found")
+    
     # Check if quiz has ended before allowing join
-    if (quiz.status == "ended"):
-        if (request.method == 'POST'):
+    if quiz.status == "ended":
+        if request.method == 'POST':
             return jsonify({
                 "status": "ended",
                 "message": "This quiz has already ended. You cannot join it anymore."
             }), 403
         return render_template('join.html', quiz_id=quiz_id, error_message="This quiz has already ended.")
     
-    if (quiz.status == "not_started" or quiz.status == "started"):
-        if (request.method == 'POST'):
+    if quiz.status == "not_started" or quiz.status == "started":
+        if request.method == 'POST':
             try:
-                username = request.form['username']
-                if (Player.query.filter_by(username=username, quiz_id=quiz_id).first()):
-                    return "Username already taken!", 400
+                username = request.form.get('username')
+                if not username:
+                    return jsonify({
+                        "status": "error",
+                        "message": "Username is required!"
+                    }), 400
+                    
+                if Player.query.filter_by(username=username, quiz_id=quiz_id).first():
+                    return jsonify({
+                        "status": "error",
+                        "message": "Username already taken!"
+                    }), 400
                 
                 # Create new player
                 player = Player(username=username, quiz_id=quiz_id)
                 db.session.add(player)
                 db.session.flush()  # Get player.id before committing
                 
-                # Get all question IDs for this quiz and randomize their order
+                # Initialize player progress
                 questions = Question.query.filter_by(quiz_id=quiz_id).all()
                 question_ids = [str(q.id) for q in questions]
-                random.shuffle(question_ids)
+                random.shuffle(question_ids)  # Randomize question order for each player
                 
-                # Create player progress entry
                 progress = PlayerProgress(
                     player_id=player.id,
                     quiz_id=quiz_id,
                     questions_order=','.join(question_ids)
                 )
-                
                 db.session.add(progress)
                 db.session.commit()
-                session['player_id'] = player.id
-                return redirect(url_for('player', quiz_id=quiz_id))
-            except Exception as e:
-                logger.error(f"Error joining quiz: {str(e)}")
-                return "Error joining quiz!", 500
                 
-    return render_template('join.html', quiz_id=quiz_id)
+                # Store player_id in session
+                session['player_id'] = player.id
+                
+                # Redirect to the correct player page URL
+                return jsonify({
+                    "status": "success",
+                    "redirect_url": f"/player/{quiz_id}/{player.id}"  # Changed to use direct URL
+                })
+            except Exception as e:
+                db.session.rollback()
+                logger.error(f"Error during join: {str(e)}")
+                return jsonify({
+                    "status": "error",
+                    "message": str(e)
+                }), 500
+        return render_template('join.html', quiz_id=quiz_id)
 
 @app.route("/start_quiz/<int:quiz_id>")
 def start_quiz(quiz_id):
@@ -387,67 +421,76 @@ def stop_quiz(quiz_id):
 def get_question(quiz_id):
     quiz = db.session.get(Quiz, quiz_id)
     
-    if (quiz.status == "not_started"):
+    if not quiz:
+        return jsonify({"error": "Quiz not found"}), 404
+    
+    if quiz.status == "not_started":
         return jsonify({"status": "not_started"})
     
-    if (quiz.status == "ended"):
+    if quiz.status == "ended":
         return jsonify({"status": "ended", "redirect_url": url_for('show_results', quiz_id=quiz_id)})
     
     player_id = session.get('player_id')
-    if (not player_id):
+    if not player_id:
         return jsonify({"error": "Not logged in"}), 403
+        
+    player = db.session.get(Player, player_id)
+    if not player or player.quiz_id != quiz_id:
+        return jsonify({"error": "Invalid player"}), 403
         
     progress = PlayerProgress.query.filter_by(
         player_id=player_id,
         quiz_id=quiz_id
     ).first()
     
-    if (progress.completed):
+    if not progress:
+        # Initialize progress if not exists
+        questions = Question.query.filter_by(quiz_id=quiz_id).all()
+        question_ids = [str(q.id) for q in questions]
+        random.shuffle(question_ids)
+        
+        progress = PlayerProgress(
+            player_id=player_id,
+            quiz_id=quiz_id,
+            questions_order=','.join(question_ids)
+        )
+        db.session.add(progress)
+        db.session.commit()
+    
+    if progress.completed:
         return jsonify({
             "status": "finished",
             "redirect_url": url_for('show_results', quiz_id=quiz_id)
         })
     
-    question_ids = progress.questions_order.split(',')
-    if (progress.current_question_index >= len(question_ids)):
-        # Player has answered all questions
-        progress.completed = True
-        progress.completion_time = datetime.utcnow()
-        db.session.commit()
-        
-        # Check if this is the first player to finish
-        first_finisher = not any(
-            PlayerProgress.query.filter(
-                PlayerProgress.quiz_id == quiz_id,
-                PlayerProgress.id != progress.id,
-                PlayerProgress.completed == True
-            ).all()
-        )
-        
-        if (first_finisher):
-            player = db.session.get(Player, player_id)
-            if (isinstance(player.score, str) and "+1⚡" in player.score):
-                base_score = int(player.score.replace("+1⚡", ""))
-                player.score = f"{base_score + 1}+1⚡"
-            else:
-                player.score = f"{player.score}+1⚡"
+    try:
+        question_ids = progress.questions_order.split(',')
+        if progress.current_question_index >= len(question_ids):
+            progress.completed = True
+            progress.completion_time = datetime.utcnow()
             db.session.commit()
             
+            return jsonify({
+                "status": "finished",
+                "redirect_url": url_for('show_results', quiz_id=quiz_id)
+            })
+        
+        current_question_id = int(question_ids[progress.current_question_index])
+        question = db.session.get(Question, current_question_id)
+        
+        if not question:
+            return jsonify({"error": "Question not found"}), 404
+        
         return jsonify({
-            "status": "finished",
-            "redirect_url": url_for('show_results', quiz_id=quiz_id)
+            "status": "started",
+            "question_id": question.id,
+            "question": question.text,
+            "type": question.type,
+            "options": question.options.split(',') if question.options else None
         })
-    
-    current_question_id = int(question_ids[progress.current_question_index])
-    question = db.session.get(Question, current_question_id)
-    
-    return jsonify({
-        "status": "started",
-        "question_id": question.id,
-        "question": question.text,
-        "type": question.type,
-        "options": question.options.split(',') if question.options else None
-    })
+    except Exception as e:
+        logger.error(f"Error serving question: {str(e)}")
+        return jsonify({"error": "Failed to load question"}), 500
 
 @app.route("/live_question/<int:quiz_id>")
 def live_question(quiz_id):
@@ -470,8 +513,22 @@ def live_question(quiz_id):
 
 @app.route('/quiz_status/<int:quiz_id>')
 def quiz_status(quiz_id):
-    quiz = db.session.get(Quiz, quiz_id)
-    return jsonify({"status": quiz.status})
+    try:
+        quiz = db.session.get(Quiz, quiz_id)
+        if not quiz:
+            return jsonify({"error": "Quiz not found"}), 404
+            
+        # Also check if player is valid for this quiz
+        player_id = session.get('player_id')
+        if player_id:
+            player = db.session.get(Player, player_id)
+            if not player or player.quiz_id != quiz_id:
+                return jsonify({"error": "Invalid player"}), 403
+        
+        return jsonify({"status": quiz.status})
+    except Exception as e:
+        logger.error(f"Error checking quiz status: {str(e)}")
+        return jsonify({"error": "Failed to get quiz status"}), 500
 
 def get_player_ranking_change(username, quiz_id):
     """Calculate player's ranking change after this quiz"""
@@ -574,7 +631,10 @@ def show_results(quiz_id):
 
 @app.route('/admin/<int:quiz_id>')
 def admin(quiz_id):
-    quiz = db.session.get(Quiz, quiz_id)
+    # Only show non-archived quizzes
+    quiz = Quiz.query.filter_by(id=quiz_id, is_archived=False).first()
+    if not quiz:
+        return redirect(url_for('home'))
     players = Player.query.filter_by(quiz_id=quiz_id).all()
     local_ip = get_local_ip()
     overall_rankings = get_overall_rankings()
@@ -584,96 +644,98 @@ def admin(quiz_id):
 def player(quiz_id):
     return render_template('player.html')
 
-@app.route("/submit_answer/<int:quiz_id>", methods=["POST"])
-def submit_answer(quiz_id):
-    if ('player_id' not in session):
-        return jsonify({"error": "Not logged in!"}), 403
-
-    player_id = session['player_id']
+@app.route('/player/<int:quiz_id>/<int:player_id>')
+def player_page(quiz_id, player_id):
+    # Verify player session and existence
+    if not session.get('player_id') or session['player_id'] != player_id:
+        return redirect(url_for('join', quiz_id=quiz_id))
+        
+    player = db.session.get(Player, player_id)
+    if not player or player.quiz_id != quiz_id:
+        return redirect(url_for('join', quiz_id=quiz_id))
+        
+    quiz = db.session.get(Quiz, quiz_id)
+    if not quiz:
+        return "Quiz not found", 404
+        
+    # Initialize player progress if not exists
     progress = PlayerProgress.query.filter_by(
         player_id=player_id,
         quiz_id=quiz_id
     ).first()
     
-    if (not progress or progress.completed):
-        return jsonify({"error": "Invalid quiz state"}), 400
+    if not progress:
+        questions = Question.query.filter_by(quiz_id=quiz_id).all()
+        question_ids = [str(q.id) for q in questions]
+        random.shuffle(question_ids)
+        
+        progress = PlayerProgress(
+            player_id=player_id,
+            quiz_id=quiz_id,
+            questions_order=','.join(question_ids)
+        )
+        db.session.add(progress)
+        db.session.commit()
+    
+    return render_template('player.html', 
+                         quiz_id=quiz_id, 
+                         player_id=player_id, 
+                         quiz=quiz)
+
+@app.route("/submit_answer/<int:quiz_id>", methods=["POST"])
+def submit_answer(quiz_id):
+    if not request.is_json:
+        return jsonify({"error": "Invalid request format"}), 400
 
     data = request.get_json()
     question_id = data.get("question_id")
-    answer = str(data.get("answer", "")).strip().lower()
-
-    # Verify this is the correct question in sequence
-    question_ids = progress.questions_order.split(',')
-    if (progress.current_question_index >= len(question_ids) or \
-       int(question_ids[progress.current_question_index]) != question_id):
-        return jsonify({"error": "Invalid question sequence"}), 400
-
-    question = db.session.get(Question, question_id)
-    player = db.session.get(Player, session["player_id"])
-    if (not question or not player):
-        return jsonify({"error": "Invalid question or player"}), 400
+    answer = data.get("answer")
     
-    # Don't award points for empty answers
-    if (not answer or answer.isspace()):
-        player_answer = PlayerAnswer(
-            player_id=player.id, 
-            question_id=question_id, 
-            answer="",
-            is_correct=False
-        )
-        db.session.add(player_answer)
-        db.session.commit()
-    else:
-        # Store the player's answer and check correctness
-        is_correct = False
+    if not question_id or not answer:
+        return jsonify({"error": "Missing question_id or answer"}), 400
+
+    player_id = session.get("player_id")
+    if not player_id:
+        return jsonify({"error": "Not logged in"}), 403
+
+    try:
+        player = db.session.get(Player, player_id)
+        if not player or player.quiz_id != quiz_id:
+            return jsonify({"error": "Invalid player"}), 403
+
+        # Get player progress
+        progress = PlayerProgress.query.filter_by(
+            player_id=player_id,
+            quiz_id=quiz_id
+        ).first()
+
+        if not progress:
+            return jsonify({"error": "No progress found"}), 404
+
+        # Get current question
+        question = db.session.get(Question, question_id)
+        if not question:
+            return jsonify({"error": "Question not found"}), 404
+
+        # Check if answer is correct
+        is_correct = answer.lower().strip() == question.answer.lower().strip()
         
-        if (question.type == "mcq"):
-            # Get full list of options
-            options_list = question.options.split(',') if question.options else []
-            # Convert answer letter (e.g., "a") to index
-            idx = ord(answer.upper()) - ord('A')
-            if (0 <= idx < len(options_list)):
-                selected_option = options_list[idx].strip().lower()
-                correct_option = str(question.correct_answer).strip().lower()
-                is_correct = selected_option == correct_option
-                if (is_correct):
-                    player.score += 1
+        # Update player score
+        if is_correct:
+            current_score = player.score if player.score else 0
+            player.score = current_score + 1
+            db.session.commit()
+
+        # Move to next question
+        progress.current_question_index += 1
         
-        elif (question.type == "fill"):
-            # Clean and normalize answers
-            correct_answer = str(question.correct_answer).strip().lower()
-            user_answer = answer.strip().lower()
+        # Check if quiz is completed
+        question_ids = progress.questions_order.split(',')
+        if progress.current_question_index >= len(question_ids):
+            progress.completed = True
+            progress.completion_time = datetime.utcnow()
             
-            # For fill-in, require exact match (or very close match)
-            similarity = difflib.SequenceMatcher(None, user_answer, correct_answer).ratio()
-            is_correct = similarity >= 0.9
-            if (is_correct):
-                player.score += 1
-
-        player_answer = PlayerAnswer(
-            player_id=player.id,
-            question_id=question_id,
-            answer=answer,
-            is_correct=is_correct
-        )
-        db.session.add(player_answer)
-        db.session.commit()
-
-    # Update progress
-    progress.current_question_index += 1
-    db.session.commit()
-
-    # Check if all questions have been attempted
-    total_questions = Question.query.filter_by(quiz_id=quiz_id).count()
-    answered_questions = PlayerAnswer.query.filter_by(player_id=player.id).count()
-    
-    if (answered_questions >= total_questions):
-        # Check if all questions were attempted (no blanks)
-        all_answers = PlayerAnswer.query.filter_by(player_id=player.id).all()
-        all_attempted = all(bool(answer.answer.strip()) for answer in all_answers)
-        
-        # Only check for first finisher bonus if all questions were attempted
-        if (all_attempted):
+            # Check if this is the first player to finish
             first_finisher = not any(
                 PlayerProgress.query.filter(
                     PlayerProgress.quiz_id == quiz_id,
@@ -682,23 +744,32 @@ def submit_answer(quiz_id):
                 ).all()
             )
             
-            if (first_finisher):
-                player.score = f"{player.score}+1⚡"
-                db.session.commit()
+            if first_finisher:
+                if isinstance(player.score, str) and "+1⚡" in player.score:
+                    base_score = int(player.score.replace("+1⚡", ""))
+                    player.score = f"{base_score + 1}+1⚡"
+                else:
+                    player.score = f"{player.score}+1⚡"
+            
+            db.session.commit()
+            
+            return jsonify({
+                "status": "finished",
+                "redirect_url": url_for('show_results', quiz_id=quiz_id)
+            })
 
-        progress.completed = True
-        progress.completion_time = datetime.utcnow()
         db.session.commit()
-        
+
         return jsonify({
-            "status": "finished",
-            "redirect_url": url_for('show_results', quiz_id=quiz_id)
+            "status": "success",
+            "is_correct": is_correct,
+            "next_question": progress.current_question_index + 1
         })
 
-    return jsonify({
-        "correct_answer": question.correct_answer,
-        "score": player.score
-    })
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error submitting answer: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/performance_data/<int:quiz_id>")
 def performance_data(quiz_id):
@@ -798,18 +869,21 @@ def archived_quizzes():
 # Add these new routes
 @app.route('/super-admin/login', methods=['GET', 'POST'])
 def super_admin_login():
-    if (request.method == 'POST'):
+    if request.method == 'POST':
         username = request.form.get('username')
         pin = request.form.get('pin')
         
+        if not username or not pin:
+            return render_template('super_admin_login.html', error="Both username and PIN are required")
+            
         # Hash the provided PIN with stored salt
         hashed_pin = hashlib.sha256((pin + SUPER_ADMIN_SALT).encode()).hexdigest()
         
-        if (username == SUPER_ADMIN_USERNAME and hashed_pin == SUPER_ADMIN_PIN_HASH):
+        if username == SUPER_ADMIN_USERNAME and hashed_pin == SUPER_ADMIN_PIN_HASH:
             session['is_super_admin'] = True
             return redirect(url_for('super_admin_dashboard'))
-        else:
-            return render_template('super_admin_login.html', error="Invalid credentials")
+            
+        return render_template('super_admin_login.html', error="Invalid credentials")
             
     return render_template('super_admin_login.html')
 
@@ -857,13 +931,12 @@ def super_admin_dashboard():
 
 @app.route("/super-admin/delete-quiz/<int:quiz_id>", methods=["POST"])
 @require_super_admin
-def delete_archived_quiz(quiz_id):
+def delete_quiz(quiz_id):
     try:
         quiz = db.session.get(Quiz, quiz_id)
         if (not quiz):
             return jsonify({"error": "Quiz not found"}), 404
             
-        # Remove archive-only restriction
         # Delete all related records first
         PlayerAnswer.query.filter(
             PlayerAnswer.player_id.in_(
@@ -901,6 +974,11 @@ def delete_archived_quiz(quiz_id):
         db.session.rollback()
         logger.error(f"Failed to delete quiz {quiz_id}: {str(e)}")
         return jsonify({"error": "Failed to delete quiz"}), 500
+
+@app.route("/super-admin/quiz/<int:quiz_id>/delete", methods=["POST"])  # Add this new route
+@require_super_admin
+def delete_quiz_new(quiz_id):
+    return delete_quiz(quiz_id)  # Reuse the existing function
 
 @app.route("/super-admin/re-offer-quiz/<int:quiz_id>", methods=["POST"])
 @require_super_admin
@@ -942,6 +1020,11 @@ def re_offer_quiz(quiz_id):
         db.session.rollback()
         logger.error(f"Failed to re-offer quiz {quiz_id}: {str(e)}")
         return jsonify({"error": "Failed to re-offer quiz"}), 500
+
+@app.route("/super-admin/quiz/<int:quiz_id>/reoffer", methods=["POST"])  # Add this new route
+@require_super_admin
+def re_offer_quiz_new(quiz_id):
+    return re_offer_quiz(quiz_id)  # Reuse the existing function
 
 @app.route("/super-admin/reset-rankings", methods=["POST"])
 @require_super_admin

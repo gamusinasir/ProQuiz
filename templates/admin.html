@@ -5,264 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Admin Page</title>
     <link rel="stylesheet" href="/static/styles.css">
-    <!-- Removed auto refresh meta tag to comply with guidelines -->
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Poppins', sans-serif;
-        }
-        /* Simple styling for admin button */
-        .quiz-btn {
-            background: linear-gradient(45deg, #3F51B5, #2196F3);
-            border: none;
-            color: white;
-            padding: 0.8rem 1.2rem;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 1rem;
-            box-shadow: 2px 2px 6px rgba(0,0,0,0.3);
-            transition: background 0.2s;
-        }
-        .quiz-btn:hover {
-            background: linear-gradient(45deg, #303F9F, #1976D2);
-        }
-        .hidden {
-            display: none;
-        }
-
-        .welcome-banner {
-            background: linear-gradient(45deg, #2196F3, #3F51B5);
-            color: white;
-            padding: 1rem;
-            border-radius: 8px;
-            margin: 1rem 0;
-            text-align: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-        .welcome-banner h1 {
-            margin: 0;
-            font-size: 2rem;
-            animation: fadeIn 1s ease-in;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        .upload-section {
-            background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            margin: 2rem 0;
-            text-align: center;
-        }
-
-        .upload-section h2 {
-            color: #2196F3;
-            margin-bottom: 1.5rem;
-            font-size: 1.8rem;
-        }
-
-        .upload-form {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .file-input-wrapper {
-            position: relative;
-            width: 100%;
-            max-width: 400px;
-        }
-
-        .file-input {
-            width: 100%;
-            padding: 1rem;
-            border: 2px dashed #3F51B5;
-            border-radius: 8px;
-            cursor: pointer;
-            text-align: center;
-            transition: border-color 0.3s;
-        }
-
-        .file-input:hover {
-            border-color: #2196F3;
-        }
-
-        .upload-btn {
-            background: linear-gradient(45deg, #3F51B5, #2196F3);
-            border: none;
-            color: white;
-            padding: 1rem 2rem;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 1rem;
-            transition: transform 0.2s;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-
-        .upload-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        }
-
-        /* Table Standings Styles */
-        .standings-section {
-            background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            margin: 2rem auto;
-            text-align: center;
-            max-width: 800px;
-        }
-
-        .standings-section h2 {
-            color: #2196F3;
-            margin-bottom: 1.5rem;
-            font-size: 1.8rem;
-        }
-
-        .toggle-standings-btn {
-            background: linear-gradient(45deg, #3F51B5, #2196F3);
-            border: none;
-            color: white;
-            padding: 1rem 2rem;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 1rem;
-            transition: transform 0.2s;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            margin: 1rem auto;
-            display: block;
-        }
-
-        .toggle-standings-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        }
-
-        .standings-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 1rem;
-            background: white;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-
-        .standings-table th {
-            background: #f0f2f5;
-            padding: 1rem;
-            text-align: left;
-            font-weight: bold;
-            color: #2196F3;
-        }
-
-        .standings-table td {
-            padding: 1rem;
-            border-bottom: 1px solid #eee;
-        }
-
-        .standings-table tr:last-child td {
-            border-bottom: none;
-        }
-
-        .standings-table .top-three {
-            background: #f8f9fa;
-        }
-
-        /* Update Table Standings Styles */
-        .standings-section {
-            background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            margin: 2rem auto;
-            text-align: center;
-            max-width: 800px;
-        }
-
-        .standings-section h2 {
-            color: #2196F3;
-            margin-bottom: 1.5rem;
-            font-size: 1.8rem;
-        }
-
-        .standings-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 1rem;
-            background: white;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-
-        .standings-table th,
-        .standings-table td {
-            text-align: left;
-            padding: 0.75rem;
-            border-bottom: 1px solid #bdc3c7;
-        }
-
-        .standings-table .top-three td {
-            font-weight: bold;
-            background: #f8f9fa;
-        }
-
-        .medal-cell {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .medal {
-            font-size: 1.5rem;
-        }
-
-        .score-adjust {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin: 0.5rem 0;
-        }
-        
-        .adjust-btn {
-            padding: 0.3rem 0.6rem;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.9rem;
-        }
-        
-        .add-score {
-            background: #4CAF50;
-            color: white;
-        }
-        
-        .remove-score {
-            background: #f44336;
-            color: white;
-        }
-        
-        .score-input {
-            width: 60px;
-            padding: 0.3rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        
-        .reason-input {
-            width: 200px;
-            padding: 0.3rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-    </style>
-    <!-- Add Chart.js library -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/static/script.js"></script>
 </head>
 <body>
     <div class="container">
@@ -281,32 +25,6 @@
             </form>
         </div>
 
-        <script>
-            document.getElementById('uploadForm').addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                const formData = new FormData(this);
-                
-                fetch('/upload', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        alert(`${data.message}\nTotal questions: ${data.questions_imported}`);
-                        window.location.href = data.redirect_url;
-                    } else {
-                        alert(data.error || 'Upload failed!');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Upload failed! Please try again.');
-                });
-            });
-        </script>
-
         {% if welcome_message %}
             <p>{{ welcome_message }}</p>
         {% endif %}
@@ -318,7 +36,7 @@
             <p class="admin-name">Quiz Administrator: <strong>{{ quiz.admin_name }}</strong></p>
         </div>
 
-        <div class="join-section">
+        <div class="join-section" style="text-align: center;">
             <img src="/static/qrcodes/quiz_{{ quiz.id }}.png" width="200" alt="QR Code">
             <p class="join-url">Join URL: <strong>http://{{ local_ip }}:5000/join/{{ quiz.id }}</strong></p>
         </div>
@@ -370,7 +88,7 @@
         <button onclick="archiveQuiz({{ quiz.id }})" class="quiz-btn archive-btn">Archive Quiz</button>
         {% endif %}
     </div>
-    <button id="toggleRankings" class="toggle-standings-btn">Table Standings</button>
+    <button id="toggleRankings" class="toggle-standings-btn">Show Standings</button>
     <div id="overallRankingsContainer" class="standings-section" style="display: none;">
     <h2>Overall Ranking of Processors</h2>
     <table class="standings-table">
@@ -412,22 +130,23 @@
     <script>
         let isPolling = true;
         const pollInterval = 3000;
-        
-        // Debounce function to limit API calls
-        function debounce(func, wait) {
-            let timeout;
-            return function executedFunction(...args) {
-                const later = () => {
-                    clearTimeout(timeout);
-                    func(...args);
-                };
-                clearTimeout(timeout);
-                timeout = setTimeout(later, wait);
-            };
-        }
+
+        // Add table standings toggle functionality
+        document.getElementById('toggleRankings').addEventListener('click', function() {
+            const rankingsContainer = document.getElementById('overallRankingsContainer');
+            const isHidden = rankingsContainer.style.display === 'none' || !rankingsContainer.style.display;
+            
+            if (isHidden) {
+                rankingsContainer.style.display = 'block';
+                this.textContent = 'Hide Standings';
+            } else {
+                rankingsContainer.style.display = 'none';
+                this.textContent = 'Show Standings';
+            }
+        });
 
         // Optimized player refresh with error handling
-        const refreshPlayers = debounce(async () => {
+        const refreshPlayers = ui.debounce(async () => {
             if (!isPolling) return;
             
             try {
@@ -437,50 +156,65 @@
                 const html = await response.text();
                 const parser = new DOMParser();
                 const newDoc = parser.parseFromString(html, "text/html");
-                const newPlayers = newDoc.getElementById("players-list");
-                const playerCount = newDoc.getElementById("player-count");
-                
-                if (newPlayers && playerCount) {
-                    document.getElementById("players-list").innerHTML = newPlayers.innerHTML;
-                    document.getElementById("player-count").innerHTML = playerCount.innerHTML;
-                }
+                updatePlayersList(newDoc);
             } catch (error) {
                 console.error("Error refreshing players:", error);
-                // Retry with exponential backoff
                 setTimeout(() => refreshPlayers(), pollInterval * 2);
             }
         }, 1000);
 
-        function startQuiz(quizId) {
-            document.getElementById('loadingOverlay').style.display = 'flex';
-            isPolling = false; // Stop polling when starting quiz
+        function updatePlayersList(newDoc) {
+            const newPlayers = newDoc.getElementById("players-list");
+            const playerCount = newDoc.getElementById("player-count");
             
-            fetch(`/start_quiz/${quizId}`)
-                .then(response => {
-                    if (!response.ok) throw new Error('Failed to start quiz');
-                    window.location.reload();
-                })
-                .catch(err => {
-                    console.error("Error starting quiz:", err);
-                    alert("Failed to start quiz. Please try again.");
-                    document.getElementById('loadingOverlay').style.display = 'none';
-                    isPolling = true;
-                });
+            if (newPlayers && playerCount) {
+                document.getElementById("players-list").innerHTML = newPlayers.innerHTML;
+                document.getElementById("player-count").innerHTML = playerCount.innerHTML;
+            }
         }
+
+        async function startQuiz(quizId) {
+            ui.showLoading(true);
+            isPolling = false;
+            
+            try {
+                await api.fetch(`/start_quiz/${quizId}`);
+                window.location.reload();
+            } catch (err) {
+                ui.showError("Failed to start quiz. Please try again.");
+                ui.showLoading(false);
+                isPolling = true;
+            }
+        }
+
+        // Upload form handling
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            try {
+                const data = await api.uploadFile('/upload', new FormData(this));
+                if (data.status === 'success') {
+                    alert(`${data.message}\nTotal questions: ${data.questions_imported}`);
+                    window.location.href = data.redirect_url;
+                } else {
+                    ui.showError(data.error);
+                }
+            } catch (error) {
+                ui.showError('Upload failed! Please try again.');
+            }
+        });
 
         // Start polling when page loads
         setInterval(refreshPlayers, pollInterval);
 
-        // Cleanup when page is hidden
-        document.addEventListener('visibilitychange', () => {
-            isPolling = !document.hidden;
+        // Handle page visibility
+        pageVisibility.onChange(visible => {
+            isPolling = visible;
         });
 
-        // Fetch player performance data and render the chart
+        // Performance chart
         async function fetchPerformanceData() {
             try {
-                const response = await fetch(`/performance_data/${quiz.id}`);
-                const data = await response.json();
+                const data = await api.fetch(`/performance_data/${quiz.id}`);
                 renderChart(data);
             } catch (error) {
                 console.error("Error fetching performance data:", error);
@@ -489,23 +223,19 @@
 
         function renderChart(data) {
             const ctx = document.getElementById('performanceChart').getContext('2d');
-            
-            // Find the index of the best performing player
             const bestScore = Math.max(...data.scores);
             const bestPlayerIndex = data.scores.indexOf(bestScore);
-
-            // Prepare background colors for the bars
-            const backgroundColors = data.scores.map((score, index) => {
-                return index === bestPlayerIndex ? 'rgba(255, 205, 86, 0.8)' : 'rgba(54, 162, 235, 0.5)'; // Highlight color
-            });
+            const backgroundColors = data.scores.map((_, index) => 
+                index === bestPlayerIndex ? 'rgba(255, 205, 86, 0.8)' : 'rgba(54, 162, 235, 0.5)'
+            );
 
             new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: data.labels, // Player usernames
+                    labels: data.labels,
                     datasets: [{
                         label: 'Score',
-                        data: data.scores, // Player scores
+                        data: data.scores,
                         backgroundColor: backgroundColors,
                         borderColor: 'rgba(54, 162, 235, 1)',
                         borderWidth: 1
@@ -514,93 +244,49 @@
                 options: {
                     scales: {
                         y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Score'
-                            }
-                        },
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'Player'
-                            }
+                            beginAtZero: true
                         }
                     }
                 }
             });
         }
 
-        // Fetch performance data on page load
-        fetchPerformanceData();
-        document.getElementById('toggleRankings').addEventListener('click', function() {
-            var rankingsContainer = document.getElementById('overallRankingsContainer');
-            if (rankingsContainer.style.display === 'none') {
-                rankingsContainer.style.display = 'block';
-                this.textContent = 'Hide Table Standings';
-            } else {
-                rankingsContainer.style.display = 'none';
-                this.textContent = 'Table Standings';
-            }
-        });
-
-        function adjustScore(quizId, playerId, isAddition) {
+        async function adjustScore(quizId, playerId, isAddition) {
             const pointsInput = document.getElementById(`points-${playerId}`);
             const reasonInput = document.getElementById(`reason-${playerId}`);
             const points = parseInt(pointsInput.value) * (isAddition ? 1 : -1);
             const reason = reasonInput.value.trim() || (isAddition ? 'Manual point addition' : 'Manual point deduction');
 
-            fetch(`/adjust_score/${quizId}/${playerId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    points: points,
-                    reason: reason
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
+            try {
+                const data = await quiz.adjustScore(quizId, playerId, points, reason);
                 if (data.status === 'success') {
-                    // Update the score display
-                    const scoreDisplay = document.getElementById(`score-${playerId}`);
-                    scoreDisplay.textContent = data.new_score;
-                    // Reset inputs
+                    document.getElementById(`score-${playerId}`).textContent = data.new_score;
                     pointsInput.value = 1;
                     reasonInput.value = '';
-                    // Show feedback
                     alert(`Score ${isAddition ? 'increased' : 'decreased'} by ${Math.abs(points)} points`);
-                } else {
-                    alert('Failed to adjust score: ' + data.error);
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Failed to adjust score. Please try again.');
-            });
+            } catch (error) {
+                ui.showError('Failed to adjust score');
+            }
         }
 
-        // Add this function to your existing JavaScript
-        function archiveQuiz(quizId) {
+        async function archiveQuiz(quizId) {
             if (!confirm('Are you sure you want to archive this quiz? This cannot be undone.')) return;
             
-            fetch(`/archive_quiz/${quizId}`, {
-                method: 'POST',
-            })
-            .then(response => response.json())
-            .then(data => {
+            try {
+                const data = await quiz.archiveQuiz(quizId);
                 if (data.status === 'success') {
                     alert('Quiz archived successfully');
                     window.location.href = '/';
-                } else {
-                    alert(data.error || 'Failed to archive quiz');
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Failed to archive quiz');
-            });
+            } catch (error) {
+                ui.showError('Failed to archive quiz');
+            }
+        }
+
+        // Initialize if chart exists
+        if (typeof quiz !== 'undefined') {
+            fetchPerformanceData();
         }
     </script>
 
@@ -643,6 +329,62 @@
         }
         .standings-table td.medal-cell {
             text-align: left;
+        }
+        .toggle-standings-btn {
+            display: block;
+            margin: 20px auto;
+            padding: 12px 24px;
+            background: linear-gradient(45deg, #2196F3, #1976D2);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .toggle-standings-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            background: linear-gradient(45deg, #1976D2, #1565C0);
+        }
+        .standings-section {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .standings-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .standings-table th {
+            background: #f8f9fa;
+            color: #2c3e50;
+            font-weight: 500;
+            padding: 1rem 0.5rem;
+            text-align: center;
+            white-space: nowrap;
+            border-bottom: 2px solid #e9ecef;
+        }
+        .standings-table td {
+            padding: 1rem 0.5rem;
+            text-align: center;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .standings-table td.medal-cell {
+            text-align: left;
+            font-weight: 500;
+        }
+        .standings-table tr:hover {
+            background: #f8fafc;
+        }
+        .top-three {
+            background: rgba(255, 215, 0, 0.05);
         }
     </style>
 </body>

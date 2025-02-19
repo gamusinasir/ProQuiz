@@ -70,13 +70,19 @@
       font-family: 'Poppins', sans-serif;
     }
   </style>
+  <script src="/static/script.js"></script>
 </head>
 <body>
   <div class="container">
     <!-- Waiting Screen -->
     <div id="waiting-screen" class="visible">
-      <h2>🕒 Waiting for the quiz to start...</h2>
-      <p>Please wait while the administrator begins the game.</p>
+      <h2>⏳ Waiting for the quiz to start...</h2>
+      <p>Please wait while for the Quiz Administrator to start the Quiz.</p>
+      <p>Once the Quiz starts, you will be presented with questions to answer.</p>
+      <p>Questions are timed <strong>(90s)</strong>, so make sure to think fast and answer quickly with <strong>composure!</strong></p> 
+      <h5>Good luck!</h5>    
+      <hr>
+      <p><em>Powered by:</em>  <strong>Tissue Processors</strong></p>
     </div>
 
     <!-- Question Screen (hidden initially) -->
@@ -97,118 +103,130 @@
     <p>Loading question...</p>
   </div>
 
-  <script src="/static/script.js"></script>
   <script>
-    let quizId = window.location.pathname.split("/").pop();
+    // Get both quiz_id and player_id from URL
+    const pathParts = window.location.pathname.split("/");
+    const quizId = pathParts[2];
+    const playerId = pathParts[3];
     let timerInterval;
-    let currentQuestionId = null; // store the current question id
+    let currentQuestionId = null;
 
-    // ===== Quiz Status Checks =====
-    function checkQuizStatus() {
-      console.log("Checking quiz status...");
-      fetch(`/quiz_status/${quizId}`)
-        .then(res => res.json())
-        .then(data => {
-          console.log("Quiz status:", data.status);
-          if (data.status === "started") {
-            document.getElementById("waiting-screen").style.display = "none";
-            document.getElementById("question-screen").style.display = "block";
-            clearInterval(checkStatusInterval);
-            loadQuestion();
-          } else if (data.status === "ended") {
-            window.location.href = `/results/${quizId}`;
-          } else if (data.status === "finished") {
-            window.location.href = `/results/${quizId}`;
-            return;
-          }
-        })
-        .catch(error => console.error("Error checking quiz status:", error));
+    async function checkQuizStatus() {
+      try {
+        const response = await fetch(`/quiz_status/${quizId}`);
+        const data = await response.json();
+        console.log("Quiz status:", data.status);
+        
+        if (data.status === "started") {
+          document.getElementById("waiting-screen").style.display = "none";
+          document.getElementById("question-screen").style.display = "block";
+          clearInterval(checkStatusInterval);
+          loadQuestion();
+        } else if (data.status === "ended" || data.status === "finished") {
+          window.location.href = `/results/${quizId}`;
+        }
+      } catch (error) {
+        console.error("Error checking quiz status:", error);
+      }
     }
 
-    // ===== Timer Logic =====
     function startTimer() {
-      let remainingTime = 60;
+      let remainingTime = 90;
       const timerText = document.getElementById("timer-text");
       const timerCircle = document.getElementById("timer-circle");
+      
+      clearInterval(timerInterval);
       timerInterval = setInterval(() => {
         remainingTime--;
         timerText.textContent = remainingTime;
 
-        // Calculate the angle for the conic gradient
-        const angle = (remainingTime / 60) * 360;
-        timerCircle.style.background = `conic-gradient(#4CAF50 ${angle}deg, transparent ${angle}deg)`;
+        const angle = (remainingTime / 90) * 360;
+        const isWarning = remainingTime <= 15;
+        const color = isWarning ? '#FF5252' : '#4CAF50';
+        timerCircle.style.background = `conic-gradient(${color} ${angle}deg, transparent ${angle}deg)`;
 
-        if (remainingTime <= 10) {
+        if (isWarning) {
           timerText.classList.add('warning');
-          timerCircle.style.background = `conic-gradient(#FF5252 ${angle}deg, transparent ${angle}deg)`;
         }
 
         if (remainingTime <= 0) {
           clearInterval(timerInterval);
-          submitAnswer("", null); // Submit empty answer and move to next question
-          loadQuestion(); // Automatically load next question
+          submitAnswer("", null);
+          loadQuestion();
         }
       }, 1000);
     }
 
-    // ===== Question Loading =====
     async function loadQuestion() {
-      clearInterval(timerInterval); // Clear any existing timer
-      document.getElementById('loading').style.display = 'flex';
+      ui.showLoading(true);
       try {
-        console.log("Loading question...");
         const response = await fetch(`/get_question/${quizId}`);
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Failed to load question');
+        }
         const data = await response.json();
-        console.log("Question data:", data);
         
-        if (data.status === "ended" || data.status === "finished") {
-          window.location.href = data.redirect_url || `/results/${quizId}`;
+        if (data.status === "finished") {
+          window.location.href = data.redirect_url;
+          return;
+        } else if (data.status === "not_started") {
+          // If quiz hasn't started yet, go back to waiting screen
+          document.getElementById("waiting-screen").style.display = "block";
+          document.getElementById("question-screen").style.display = "none";
           return;
         }
         
-        currentQuestionId = data.question_id;
         document.getElementById("question-text").textContent = data.question;
+        currentQuestionId = data.question_id;
+        
         const answersDiv = document.getElementById("answers");
         answersDiv.innerHTML = "";
 
-        if (data.type === "mcq") {
-          data.options.forEach((option, idx) => {
+        if (data.options && data.options.length > 0) {
+          data.options.forEach((option, index) => {
             const button = document.createElement("button");
             button.className = "answer-option";
-            button.textContent = `${String.fromCharCode(65 + idx)}. ${option}`;
-            button.onclick = () => submitAnswer(String.fromCharCode(65 + idx), button);
+            button.textContent = option;
+            // For MCQ, send the letter as the answer
+            button.onclick = () => submitAnswer(String.fromCharCode(65 + index), button);
             answersDiv.appendChild(button);
           });
         } else {
           const input = document.createElement("input");
           input.type = "text";
           input.placeholder = "Type your answer...";
-          input.style.padding = "0.5rem";
-          input.style.borderRadius = "4px";
           const button = document.createElement("button");
           button.className = "submit-btn";
           button.textContent = "Submit";
           button.onclick = () => submitAnswer(input.value, button);
           answersDiv.append(input, button);
         }
-        startTimer(); // Start new timer for the question
+        startTimer();
       } catch (error) {
         console.error("Error loading question:", error);
+        ui.showError(error.message);
         setTimeout(loadQuestion, 2000);
       } finally {
-        document.getElementById('loading').style.display = 'none';
+        ui.showLoading(false);
       }
     }
 
-    // ===== Answer Submission =====
     async function submitAnswer(answer, buttonElement) {
-      clearInterval(timerInterval); // Clear timer on submission
+      clearInterval(timerInterval);
       try {
-        const response = await fetch(`/submit_answer/${quizId}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ question_id: currentQuestionId, answer: answer })
+        const quizId = window.location.pathname.split("/")[2]; // Extract quiz_id from URL
+        const response = await fetch('/submit_answer/' + quizId, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            question_id: currentQuestionId,
+            answer: answer
+          })
         });
+        
         const data = await response.json();
         
         if (data.status === "finished") {
@@ -217,21 +235,28 @@
         }
 
         if (buttonElement) {
-          buttonElement.style.backgroundColor = data.correct ? "lightgreen" : "lightcoral";
-          // Short delay to show the color feedback before moving to next question
+          buttonElement.style.backgroundColor = data.is_correct ? "lightgreen" : "lightcoral";
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
         
-        loadQuestion(); // Load next question automatically
+        loadQuestion();
       } catch (err) {
         console.error("Submission error:", err);
         loadQuestion();
       }
     }
 
-    // ===== Initial Setup =====
+    // Initialize quiz
     let checkStatusInterval = setInterval(checkQuizStatus, 2000);
-    // Remove permanent onbeforeunload prompt
+
+    // Handle page visibility
+    pageVisibility.onChange(visible => {
+      if (!visible) {
+        clearInterval(checkStatusInterval);
+      } else {
+        checkStatusInterval = setInterval(checkQuizStatus, 2000);
+      }
+    });
   </script>
   
   <style>
